@@ -1,0 +1,25 @@
+# GitHub Access Checker - Enhanced Version
+# Python dependencies
+
+# Core dependencies
+requests>=2.25.0
+
+# Optional dependencies for enhanced features
+# Uncomment if needed:
+
+# For advanced logging features
+# coloredlogs>=15.0
+
+# For system tray integration
+# pystray>=0.17.0
+# pillow>=8.0.0
+
+# For configuration validation
+# jsonschema>=3.2.0
+
+# For network utilities
+# urllib3>=1.26.0
+
+# For development and testing
+# pytest>=6.0.0
+# pytest-cov>=2.10.0

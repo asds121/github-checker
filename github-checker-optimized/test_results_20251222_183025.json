@@ -1,0 +1,24 @@
+{
+  "timestamp": "2025-12-22T18:30:25.077824",
+  "results": [
+    {
+      "url": "https://github.com",
+      "status_code": 200,
+      "response_time_ms": 122653,
+      "success": true,
+      "error": null
+    },
+    {
+      "url": "https://api.github.com",
+      "status_code": 415,
+      "response_time_ms": 1740,
+      "success": false,
+      "error": null
+    }
+  ],
+  "summary": {
+    "total_tests": 2,
+    "successful_tests": 1,
+    "failed_tests": 1
+  }
+}
