@@ -1,219 +1,165 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# GitHub Access Checker - AiPy Version
-# Function: Real-time detection of github.com accessibility
+"""
+GitHub网络状态检测工具 - 极简版
+
+核心需求（第一性原理分析）：
+1. 检测GitHub能否访问
+2. 显示检测结果
+3. 给用户操作建议
+
+去掉的东西：
+- 插件化架构（过度设计）
+- 事件总线（不必要的复杂性）
+- 多线程（单次请求足够快）
+- 数据持久化（大多数用户不需要）
+- 复杂配置系统
+- 自动检测定时任务
+- 完善日志系统
+"""
+
 import tkinter as tk
 from tkinter import ttk
 import requests
-import threading
 import time
-from datetime import datetime
-class GitHubChecker:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("GitHub Access Checker")
-        self.root.geometry("400x250")
-        self.root.resizable(False, False)
-        
-        # Main frame
-        main_frame = ttk.Frame(root, padding="20")
-        main_frame.pack(fill=tk.BOTH, expand=True)
-        
-        # Title
-        title_label = tk.Label(
-            main_frame, 
-            text="GitHub Status Checker", 
-            font=("Arial", 14, "bold"),
-            fg="#333"
-        )
-        title_label.pack(pady=(0, 15))
-        
-        # Status display area
-        status_frame = ttk.Frame(main_frame)
-        status_frame.pack(fill=tk.X, pady=10)
-        
-        self.status_label = tk.Label(
-            status_frame,
-            text="Ready to check...",
-            font=("Arial", 11),
-            fg="#666"
-        )
-        self.status_label.pack(pady=5)
-        
-        # Response time
-        self.speed_label = tk.Label(
-            status_frame,
-            text="Response: -- ms",
-            font=("Arial", 9),
-            fg="#888"
-        )
-        self.speed_label.pack(pady=2)
-        
-        # Last check time
-        self.time_label = tk.Label(
-            status_frame,
-            text="Last Check: --:--:--",
-            font=("Arial", 8),
-            fg="#999"
-        )
-        self.time_label.pack(pady=2)
-        
-        # Button area
-        button_frame = ttk.Frame(main_frame)
-        button_frame.pack(pady=15)
-        
-        self.check_button = tk.Button(
-            button_frame,
-            text="Check Now",
-            command=self.start_check,
-            bg="#4CAF50",
-            fg="white",
-            font=("Arial", 9, "bold"),
-            relief="flat",
-            padx=20,
-            pady=5,
-            cursor="hand2"
-        )
-        self.check_button.pack(side=tk.LEFT, padx=5)
-        
-        self.auto_button = tk.Button(
-            button_frame,
-            text="Auto: OFF",
-            command=self.toggle_auto,
-            bg="#2196F3",
-            fg="white",
-            font=("Arial", 9, "bold"),
-            relief="flat",
-            padx=15,
-            pady=5,
-            cursor="hand2"
-        )
-        self.auto_button.pack(side=tk.LEFT, padx=5)
-        
-        # Status indicator
-        self.indicator = tk.Label(
-            main_frame,
-            text="●",
-            font=("Arial", 30),
-            fg="#999"
-        )
-        self.indicator.pack(pady=10)
-        
-        # Variables
-        self.auto_checking = False
-        self.check_thread = None
-        
-    def set_status(self, state):
-        """Set status color and text"""
-        if state == "ready":
-            self.indicator.config(fg="#999")
-            self.status_label.config(text="Ready", fg="#666")
-        elif state == "checking":
-            self.indicator.config(fg="#FFA500")
-            self.status_label.config(text="Checking...", fg="#FFA500")
-        elif state == "success":
-            self.indicator.config(fg="#4CAF50")
-            self.status_label.config(text="Accessible", fg="#4CAF50")
-        elif state == "failed":
-            self.indicator.config(fg="#F44336")
-            self.status_label.config(text="Failed", fg="#F44336")
+
+
+class Checker:
+    """核心检测逻辑 - 只有70行"""
     
-    def check_github(self):
-        """Check GitHub access"""
+    TARGETS = [
+        ("主页", "https://github.com"),
+        ("API", "https://api.github.com"),
+    ]
+    
+    def check(self, timeout: float = 8.0) -> dict:
+        start = time.time()
+        results = []
+        
+        for name, url in self.TARGETS:
+            elapsed = time.time() - start
+            remain = max(1.0, timeout - elapsed)
+            
+            r = self._test(url, remain)
+            results.append((name, r))
+            
+            if name == "主页" and not r["ok"]:
+                break
+        
+        total_ms = (time.time() - start) * 1000
+        status = self._judge(results)
+        
+        return {
+            "status": status,
+            "ms": total_ms,
+            "results": results,
+            "msg": self._msg(status, results)
+        }
+    
+    def _test(self, url: str, timeout: float) -> dict:
         try:
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9',
-                'Referer': 'https://github.com/'
+            t0 = time.time()
+            resp = requests.get(url, timeout=timeout, headers={
+                "User-Agent": "GitHubChecker/1.0"
+            })
+            return {
+                "ok": resp.status_code == 200,
+                "ms": round((time.time() - t0) * 1000)
             }
-            
-            start_time = time.time()
-            response = requests.get(
-                'https://github.com',
-                headers=headers,
-                timeout=10,
-                allow_redirects=True
-            )
-            end_time = time.time()
-            
-            response_time = int((end_time - start_time) * 1000)
-            
-            if response.status_code == 200:
-                return True, response_time
-            else:
-                return False, response.status_code
-                
-        except requests.exceptions.Timeout:
-            return False, "Timeout"
-        except requests.exceptions.ConnectionError:
-            return False, "Connection Error"
         except Exception as e:
-            return False, str(e)
+            return {"ok": False, "error": str(e)}
     
-    def update_ui(self, success, result):
-        """Update UI"""
-        current_time = datetime.now().strftime("%H:%M:%S")
-        self.time_label.config(text=f"Last Check: {current_time}")
+    def _judge(self, results: list) -> str:
+        if not results:
+            return "bad"
         
-        if success:
-            self.set_status("success")
-            self.speed_label.config(text=f"Response: {result} ms", fg="#4CAF50")
-        else:
-            self.set_status("failed")
-            self.speed_label.config(text=f"Result: {result}", fg="#F44336")
+        ok = sum(1 for _, r in results if r.get("ok"))
+        if ok == 0:
+            return "bad"
+        if ok < len(results):
+            return "warn"
+        
+        avg = sum(r["ms"] for _, r in results) / len(results)
+        return "good" if avg < 300 else "warn"
     
-    def do_check(self):
-        """Execute check in thread"""
-        self.set_status("checking")
-        self.check_button.config(state=tk.DISABLED)
+    def _msg(self, status: str, results: list) -> str:
+        msgs = {
+            "good": "✅ GitHub访问正常",
+            "warn": "⚠️ GitHub访问不稳定",
+            "bad": "❌ 无法连接GitHub"
+        }
+        return msgs.get(status, "❌ 未知状态")
+
+
+class GUI:
+    """极简界面 - 只有60行"""
+    
+    COLORS = {"good": "#27ae60", "warn": "#f39c12", "bad": "#e74c3c"}
+    
+    def __init__(self):
+        self.chk = Checker()
+        self._build()
+    
+    def _build(self):
+        self.root = tk.Tk()
+        self.root.title("GitHub状态检测")
+        self.root.geometry("360x240")
+        self.root.resizable(False, False)
+        self.root.configure(bg="#f5f5f5")
+        self._center()
+        
+        f = ttk.Frame(self.root, padding=15)
+        f.pack(fill=tk.BOTH, expand=True)
+        
+        ttk.Label(f, text="GitHub状态检测",
+                 font=("Arial", 13, "bold"),
+                 background="#f5f5f5").pack(pady=(0, 10))
+        
+        self.status = tk.Label(f, text="●", font=("Arial", 45),
+                              foreground="#999999", background="#f5f5f5")
+        self.status.pack()
+        
+        self.msg = tk.Label(f, text="点击按钮开始检测",
+                           font=("Arial", 10), wraplength=320,
+                           background="#f5f5f5")
+        self.msg.pack(pady=12)
+        
+        self.info = tk.Label(f, text="延迟: --",
+                           font=("Arial", 9), foreground="#666",
+                           background="#f5f5f5")
+        self.info.pack()
+        
+        ttk.Button(f, text="开始检测", command=self._run,
+                  width=12).pack(pady=15)
+    
+    def _center(self):
+        self.root.update_idletasks()
+        w, h = 360, 240
+        x = (self.root.winfo_screenwidth() - w) // 2
+        y = (self.root.winfo_screenheight() - h) // 2
+        self.root.geometry(f"+{x}+{y}")
+    
+    def _run(self):
+        self.status.config(text="...", foreground="#666")
+        self.root.update()
         
         try:
-            success, result = self.check_github()
-            self.update_ui(success, result)
-        finally:
-            self.check_button.config(state=tk.NORMAL)
+            r = self.chk.check(timeout=8.0)
+            self.status.config(text="●", foreground=self.COLORS[r["status"]])
+            self.msg.config(text=r["msg"])
+            
+            main = r["results"][0][1] if r["results"] else {}
+            if main.get("ok"):
+                self.info.config(text=f"延迟: {main['ms']:.0f}ms  |  正常")
+            else:
+                self.info.config(text="延迟: --  |  失败")
+        except Exception as e:
+            self.status.config(text="!", foreground="#e74c3c")
+            self.msg.config(text=f"错误: {e}")
     
-    def start_check(self):
-        """Start checking"""
-        if self.check_thread and self.check_thread.is_alive():
-            return
-        
-        self.check_thread = threading.Thread(target=self.do_check, daemon=True)
-        self.check_thread.start()
-    
-    def auto_check_loop(self):
-        """Auto check loop"""
-        while self.auto_checking:
-            self.do_check()
-            for _ in range(50):
-                if not self.auto_checking:
-                    break
-                time.sleep(0.1)
-    
-    def toggle_auto(self):
-        """Toggle auto check"""
-        if not self.auto_checking:
-            self.auto_checking = True
-            self.auto_button.config(text="Auto: ON", bg="#E91E63")
-            self.check_button.config(state=tk.DISABLED)
-            auto_thread = threading.Thread(target=self.auto_check_loop, daemon=True)
-            auto_thread.start()
-        else:
-            self.auto_checking = False
-            self.auto_button.config(text="Auto: OFF", bg="#2196F3")
-            self.check_button.config(state=tk.NORMAL)
-            self.set_status("ready")
-def main():
-    root = tk.Tk()
-    app = GitHubChecker(root)
-    
-    footer = tk.Label(
-        root,
-        text="Generated by AiPy - Local Check Only",
-        font=("Arial", 8),
-        fg="#999"
-    )
-    footer.pack(side=tk.BOTTOM, fill=tk.X, pady=5)
-    
-    root.mainloop()
+    def start(self):
+        self.root.mainloop()
+
+
 if __name__ == "__main__":
-    main()
+    GUI().start()
