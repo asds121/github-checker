@@ -72,7 +72,7 @@ class Checker:
             return "warn"
         
         avg = sum(r["ms"] for _, r in results) / len(results)
-        return "good" if avg < 300 else "warn"
+        return "good" if avg < 3000 else "warn"
     
     def _msg(self, status: str, results: list) -> str:
         msgs = {
