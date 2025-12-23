@@ -1,35 +1,27 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+# -*- coding: ascii -*-
 """
-GitHub网络状态检测工具 - 极简版
+GitHub Network Status Checker - Minimal CLI Version
 
-核心需求（第一性原理分析）：
-1. 检测GitHub能否访问
-2. 显示检测结果
-3. 给用户操作建议
+Core functions:
+1. Check GitHub accessibility
+2. Show detection results
+3. Provide operation suggestions
 
-去掉的东西：
-- 插件化架构（过度设计）
-- 事件总线（不必要的复杂性）
-- 多线程（单次请求足够快）
-- 数据持久化（大多数用户不需要）
-- 复杂配置系统
-- 自动检测定时任务
-- 完善日志系统
+Author: GitHub Checker Project
 """
 
-import tkinter as tk
-from tkinter import ttk
-import requests
+import sys
 import time
+import requests
 
 
 class Checker:
-    """核心检测逻辑 - 只有70行"""
+    """Core detection logic"""
     
     TARGETS = [
-        ("主页", "https://github.com"),
-        ("API", "https://api.github.com"),
+        ("homepage", "https://github.com"),
+        ("api", "https://api.github.com"),
     ]
     
     def check(self, timeout: float = 8.0) -> dict:
@@ -43,7 +35,7 @@ class Checker:
             r = self._test(url, remain)
             results.append((name, r))
             
-            if name == "主页" and not r["ok"]:
+            if name == "homepage" and not r["ok"]:
                 break
         
         total_ms = (time.time() - start) * 1000
@@ -84,82 +76,61 @@ class Checker:
     
     def _msg(self, status: str, results: list) -> str:
         msgs = {
-            "good": "✅ GitHub访问正常",
-            "warn": "⚠️ GitHub访问不稳定",
-            "bad": "❌ 无法连接GitHub"
+            "good": "[OK] GitHub is accessible",
+            "warn": "[WARN] GitHub is unstable",
+            "bad": "[FAIL] Cannot connect to GitHub"
         }
-        return msgs.get(status, "❌ 未知状态")
+        return msgs.get(status, "[FAIL] Unknown status")
 
 
-class GUI:
-    """极简界面 - 只有60行"""
+def spinning_cursor():
+    """Generator for spinning cursor animation"""
+    while True:
+        for cursor in '|/-\\':
+            yield cursor
+
+
+def main():
+    """Main function"""
+    print("GitHub Network Status Checker v1.0")
+    print("=" * 40)
+    print("Checking GitHub accessibility...")
     
-    COLORS = {"good": "#27ae60", "warn": "#f39c12", "bad": "#e74c3c"}
+    spinner = spinning_cursor()
     
-    def __init__(self):
-        self.chk = Checker()
-        self._build()
-    
-    def _build(self):
-        self.root = tk.Tk()
-        self.root.title("GitHub状态检测")
-        self.root.geometry("360x240")
-        self.root.resizable(False, False)
-        self.root.configure(bg="#f5f5f5")
-        self._center()
+    try:
+        chk = Checker()
+        r = chk.check(timeout=8.0)
         
-        f = ttk.Frame(self.root, padding=15)
-        f.pack(fill=tk.BOTH, expand=True)
+        print("\r" + " " * 50 + "\r", end="")
         
-        ttk.Label(f, text="GitHub状态检测",
-                 font=("Arial", 13, "bold"),
-                 background="#f5f5f5").pack(pady=(0, 10))
+        print("\nResults:")
+        print("-" * 40)
         
-        self.status = tk.Label(f, text="●", font=("Arial", 45),
-                              foreground="#999999", background="#f5f5f5")
-        self.status.pack()
+        for name, result in r["results"]:
+            status = "OK" if result.get("ok") else "FAIL"
+            ms = result.get("ms", 0)
+            print(f"  {name:10}: {status:4} ({ms:.0f}ms)")
         
-        self.msg = tk.Label(f, text="点击按钮开始检测",
-                           font=("Arial", 10), wraplength=320,
-                           background="#f5f5f5")
-        self.msg.pack(pady=12)
+        print("-" * 40)
+        print(f"\nStatus: {r['msg']}")
         
-        self.info = tk.Label(f, text="延迟: --",
-                           font=("Arial", 9), foreground="#666",
-                           background="#f5f5f5")
-        self.info.pack()
+        if r["status"] == "good":
+            print("\nSuggestion: You can push code normally.")
+        elif r["status"] == "warn":
+            print("\nSuggestion: Try again later, or use proxy.")
+        else:
+            print("\nSuggestion: Check network connection or VPN.")
         
-        ttk.Button(f, text="开始检测", command=self._run,
-                  width=12).pack(pady=15)
-    
-    def _center(self):
-        self.root.update_idletasks()
-        w, h = 360, 240
-        x = (self.root.winfo_screenwidth() - w) // 2
-        y = (self.root.winfo_screenheight() - h) // 2
-        self.root.geometry(f"+{x}+{y}")
-    
-    def _run(self):
-        self.status.config(text="...", foreground="#666")
-        self.root.update()
+        return 0
         
-        try:
-            r = self.chk.check(timeout=8.0)
-            self.status.config(text="●", foreground=self.COLORS[r["status"]])
-            self.msg.config(text=r["msg"])
-            
-            main = r["results"][0][1] if r["results"] else {}
-            if main.get("ok"):
-                self.info.config(text=f"延迟: {main['ms']:.0f}ms  |  正常")
-            else:
-                self.info.config(text="延迟: --  |  失败")
-        except Exception as e:
-            self.status.config(text="!", foreground="#e74c3c")
-            self.msg.config(text=f"错误: {e}")
-    
-    def start(self):
-        self.root.mainloop()
+    except KeyboardInterrupt:
+        print("\n\nInterrupted by user.")
+        return 1
+    except Exception as e:
+        print(f"\nError: {e}")
+        return 1
 
 
 if __name__ == "__main__":
-    GUI().start()
+    sys.exit(main())
