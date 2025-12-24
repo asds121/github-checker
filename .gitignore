@@ -42,3 +42,7 @@ Thumbs.db
 # Local configuration
 config.local.py
 .env
+
+# Developer scripts (not for GitHub)
+dev-*.bat
+*.local.bat
