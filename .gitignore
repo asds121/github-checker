@@ -44,7 +44,10 @@ config.local.py
 .env
 
 # Development scripts
-dev-*.bat
 dev-*.ps1
+dev-*.bat
 dev-workflow.md
 assistant-rules.md
+
+# Flake8 configuration
+.flake8
