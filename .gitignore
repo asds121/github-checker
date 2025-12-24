@@ -46,3 +46,6 @@ config.local.py
 # Developer scripts (not for GitHub)
 dev-*.bat
 *.local.bat
+
+# AI Assistant rules (not for GitHub)
+assistant-rules.md
