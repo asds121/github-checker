@@ -61,8 +61,8 @@ class Checker:
                                           if r.get("ok", False))
                 target_stats[name] = {
                     "avg_response": avg_response,
-                    "success_rate": successful_responses / len(target_results)
-                                    * 100
+                    "success_rate": (successful_responses /
+                                    len(target_results) * 100)
                 }
 
         overall_status = self._judge(all_results)
@@ -354,3 +354,4 @@ def main():
 if __name__ == "__main__":
     # Execute main function when script is run directly
     sys.exit(main())
+
