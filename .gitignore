@@ -43,10 +43,8 @@ Thumbs.db
 config.local.py
 .env
 
-# Developer scripts (not for GitHub)
+# Development scripts
 dev-*.bat
 dev-*.ps1
-*.local.bat
-
-# AI Assistant rules (not for GitHub)
+dev-workflow.md
 assistant-rules.md
