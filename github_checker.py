@@ -366,6 +366,33 @@ def spinning_cursor() -> Iterator[str]:
             yield cursor  # Generate next cursor character
 
 
+def format_fun_status(status: str, avg_ms: float = None) -> str:
+    """
+    Format status message with fun descriptions
+
+    Args:
+        status (str): Status type ("good", "warn", "bad")
+        avg_ms (float): Average response time in milliseconds
+
+    Returns:
+        str: Fun status description
+    """
+    if status == "good":
+        if avg_ms and avg_ms < 500:
+            return "GitHub is super fast! Everything is blazing!"
+        elif avg_ms and avg_ms < 1000:
+            return "GitHub is happy and responsive!"
+        else:
+            return "GitHub is accessible and working normally!"
+    elif status == "warn":
+        if avg_ms and avg_ms > 3000:
+            return "GitHub seems to be taking a nap... zzz"
+        else:
+            return "GitHub is a bit slow today..."
+    else:
+        return "GitHub appears to be unreachable at the moment"
+
+
 def main() -> int:
     """
     Main function: Execute GitHub accessibility check main logic
@@ -389,11 +416,31 @@ def main() -> int:
     # Add JSON output parameter
     parser.add_argument('-j', '--json', action='store_true',
                         help='Output results in JSON format')
+    # Add theme parameter
+    parser.add_argument('-t', '--theme', choices=['default', 'minimal', 'fun'],
+                        default='default', help='Output theme (default: default)')
+    # Add intro parameter to show value proposition
+    parser.add_argument('-i', '--intro', action='store_true',
+                        help='Show tool value proposition')
     args = parser.parse_args()  # Parse command line arguments
 
-    # Print program title and separator
-    print("GitHub Network Status Checker v1.1.0")
-    print("=" * 40)
+    # Show value proposition if --intro is used
+    if args.intro:
+        print("=" * 50)
+        print("GitHub Network Status Checker - Solve Your GitHub Connection Anxiety")
+        print("=" * 50)
+        print("Core Value:")
+        print("  * Quickly detect GitHub accessibility, avoid wasted operations")
+        print("  * Provide response time reference, optimize your workflow")
+        print("  * Give specific suggestions, reduce troubleshooting time")
+        print("=" * 50)
+        print()
+
+    # Print friendly welcome message and version
+    print("=" * 50)
+    print("GitHub Network Status Checker")
+    print("Version: 1.1.0")
+    print("=" * 50)
     # Print check start prompt
     print("Checking GitHub accessibility...", end=" ")
 
@@ -432,7 +479,7 @@ def main() -> int:
             spinner_thread.join(timeout=SPINNER_JOIN_TIMEOUT)
             print("\r" + " " * SPINNER_PADDING + "\r", end="")
 
-        # Format output based on JSON flag
+        # Format output based on JSON flag and theme
         if args.json:
             # Output results in JSON format
             json_output = {
@@ -483,21 +530,31 @@ def main() -> int:
 
             print(json.dumps(json_output, indent=2, ensure_ascii=False))
         else:
-            # Output results in human-readable format
-            print("\nResults:")  # Print results title
-            print("-" * 40)  # Print separator
+            # Output results in human-readable format based on theme
+            if args.theme == "minimal":
+                # Minimal theme: just essential info
+                for name, result in r["results"]:
+                    if result.get("ok"):
+                        status = "OK"
+                        ms = result.get("ms", 0)
+                        print(f"{name}: {status} ({ms:.0f}ms)")
+                    else:
+                        print(f"{name}: FAIL")
 
-            if is_full_test:
-                # Display full test results
-                print(f"Full test completed ({r['iterations']} iterations)")
-                print(f"Successful checks: {r['successful_checks']}/{r['iterations']}")
-                print(f"Average total time: {r['avg_total_time']:.0f}ms")
-                print("\nTarget statistics:")
-                for name, stats in r['target_stats'].items():
-                    print(f"  {name:10}: Avg {stats['avg_response']:.0f}ms, "
-                          f"Success rate: {stats['success_rate']:.1f}%")
-            else:
-                # Display normal check results
+                # Add status line
+                if r["status"] == "good":
+                    print(f"STATUS: OK ({r['msg']})")
+                elif r["status"] == "warn":
+                    print(f"STATUS: WARN ({r['msg']})")
+                else:
+                    print(f"STATUS: FAIL ({r['msg']})")
+
+            elif args.theme == "fun":
+                # Fun theme: with fun descriptions
+                print("\n" + "=" * 50)
+                print("DETECTION RESULTS")
+                print("-" * 20)
+
                 for name, result in r["results"]:
                     if result.get("ok"):
                         status = "OK"
@@ -505,26 +562,137 @@ def main() -> int:
                         print(f"  {name:10}: {status:4} ({ms:.0f}ms)")
                     else:
                         status = "FAIL"
-                        error_msg = result.get("error", "Unknown error")
-                        print(f"  {name:10}: {status:4} ({error_msg})")
+                        print(f"  {name:10}: {status:4}")
 
-            print("-" * 40)
-            # Display status with color formatting
-            print(f"\nStatus: {format_status(r['status'], r['msg'])}")  # Print status message
+                print("\n" + "=" * 50)
 
-            # Provide operation suggestions based on status
-            if r["status"] == "good":
-                print(f"\nSuggestion: {colorize('Network is stable, you can push code normally.', Colors.GREEN)}")
-            elif r["status"] == "warn":
-                failed_targets = [name for name, result in r.get("results", [])
-                                  if not result.get("ok")]
-                if failed_targets:
-                    msg = f"Network is unstable for {', '.join(failed_targets)}. "
-                    print(f"\nSuggestion: {colorize(msg + 'Try again later.', Colors.YELLOW)}")
+                # Fun status messages
+                avg_ms = r.get("avg_total_time", 0) if is_full_test else None
+                fun_status = format_fun_status(r["status"], avg_ms)
+                print(f"STATUS: {fun_status}")
+
+                print("\n" + "=" * 50)
+                print("SUGGESTION")
+
+                if r["status"] == "good":
+                    print("  You can push code now! Go for it!")
+                    print("  Everything is working great!")
+                elif r["status"] == "warn":
+                    failed_targets = [name for name, result in r.get("results", [])
+                                      if not result.get("ok")]
+                    if failed_targets:
+                        print("  GitHub is having some trouble...")
+                        failed_list = ', '.join(failed_targets)
+                        print(f"  Slow spot: {failed_list}")
+                        print("  Maybe wait a bit and try again?")
+                    else:
+                        print("  Things are a bit slow today...")
+                        print("  But you can still get work done!")
                 else:
-                    print(f"\nSuggestion: {colorize('Network is slow but accessible.', Colors.YELLOW)}")
+                    print("  GitHub seems to be taking a break...")
+                    print("  Check your network connection first.")
+
+                print("\n" + "=" * 50)
+                print("SHARE THIS RESULT")
+                print(f"GitHub Checker v1.1.0 | {r['msg']} | {time.strftime('%Y-%m-%d %H:%M:%S')}")
+
             else:
-                print(f"\nSuggestion: {colorize('Network connection failed.', Colors.RED)}")
+                # Default theme: the current rich format
+                print("\nResults:")  # Print results title
+                print("-" * 40)  # Print separator
+
+                if is_full_test:
+                    # Display full test results
+                    print(f"Full test completed ({r['iterations']} iterations)")
+                    print(f"Successful checks: {r['successful_checks']}/{r['iterations']}")
+                    print(f"Average total time: {r['avg_total_time']:.0f}ms")
+                    print("\nTarget statistics:")
+                    for name, stats in r['target_stats'].items():
+                        print(f"  {name:10}: Avg {stats['avg_response']:.0f}ms, "
+                              f"Success rate: {stats['success_rate']:.1f}%")
+
+                    print("\n" + "=" * 50)
+                    # Display status with color formatting
+                    print(f"STATUS: {format_status(r['status'], r['msg'])}")  # Print status message
+
+                    # Provide operation suggestions based on status
+                    print("\n" + "=" * 50)
+
+                    # Print SUGGESTION section for full test
+                    print("SUGGESTION")
+
+                    # Suggestion logic for full test
+                    if r["status"] == "good":
+                        print(f"  {colorize('Network is stable.', Colors.GREEN)}")
+                        print(f"  {colorize('You can push code normally.', Colors.GREEN)}")
+                    elif r["status"] == "warn":
+                        failed_targets = [name for name, result in r.get("results", [])
+                                          if not result.get("ok")]
+                        if failed_targets:
+                            print(f"  {colorize('Network is unstable.', Colors.YELLOW)}")
+                            failed_list = ', '.join(failed_targets)
+                            print(f"  {colorize(f'Issues with: {failed_list}', Colors.YELLOW)}")
+                            print(f"  {colorize('Try again later.', Colors.YELLOW)}")
+                        else:
+                            print(f"  {colorize('Network is slow but accessible.', Colors.YELLOW)}")
+                            print(f"  {colorize('Consider waiting for better connectivity.', Colors.YELLOW)}")
+                    else:
+                        print(f"  {colorize('Network connection failed.', Colors.RED)}")
+                        print(f"  {colorize('Check your network settings.', Colors.RED)}")
+
+                    # Add share-friendly message
+                    print("\n" + "=" * 50)
+                    print("SHARE THIS RESULT")
+                    print(f"GitHub Checker v1.1.0 | {r['msg']} | {time.strftime('%Y-%m-%d %H:%M:%S')}")
+                else:
+                    # Display results in a screenshot-friendly format
+                    print("\n" + "=" * 50)
+                    print("DETECTION RESULTS")
+                    print("-" * 20)
+
+                    for name, result in r["results"]:
+                        if result.get("ok"):
+                            status = "OK"
+                            ms = result.get("ms", 0)
+                            print(f"  {name:10}: {status:4} ({ms:.0f}ms)")
+                        else:
+                            status = "FAIL"
+                            error_msg = result.get("error", "Unknown error")
+                            print(f"  {name:10}: {status:4} ({error_msg})")
+
+                    print("\n" + "=" * 50)
+                    # Display status with color formatting
+                    print(f"STATUS: {format_status(r['status'], r['msg'])}")  # Print status message
+
+                    # Provide operation suggestions based on status
+                    print("\n" + "=" * 50)
+
+                    # Print SUGGESTION section for normal test
+                    print("SUGGESTION")
+
+                    # Suggestion logic for normal test
+                    if r["status"] == "good":
+                        print(f"  {colorize('Network is stable.', Colors.GREEN)}")
+                        print(f"  {colorize('You can push code normally.', Colors.GREEN)}")
+                    elif r["status"] == "warn":
+                        failed_targets = [name for name, result in r.get("results", [])
+                                          if not result.get("ok")]
+                        if failed_targets:
+                            print(f"  {colorize('Network is unstable.', Colors.YELLOW)}")
+                            failed_list = ', '.join(failed_targets)
+                            print(f"  {colorize(f'Issues with: {failed_list}', Colors.YELLOW)}")
+                            print(f"  {colorize('Try again later.', Colors.YELLOW)}")
+                        else:
+                            print(f"  {colorize('Network is slow but accessible.', Colors.YELLOW)}")
+                            print(f"  {colorize('Consider waiting for better connectivity.', Colors.YELLOW)}")
+                    else:
+                        print(f"  {colorize('Network connection failed.', Colors.RED)}")
+                        print(f"  {colorize('Check your network settings.', Colors.RED)}")
+
+                    # Add share-friendly message
+                    print("\n" + "=" * 50)
+                    print("SHARE THIS RESULT")
+                    print(f"GitHub Checker v1.1.0 | {r['msg']} | {time.strftime('%Y-%m-%d %H:%M:%S')}")
 
         return 0  # Normal exit
 
@@ -571,6 +739,7 @@ def main() -> int:
 if __name__ == "__main__":
     # Execute main function when script is run directly
     sys.exit(main())
+
 
 
 

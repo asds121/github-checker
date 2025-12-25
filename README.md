@@ -331,6 +331,21 @@ Suggestion: Network is stable, you can push code normally.
 
 本工具的核心功能由`Checker`类提供，以下是该类的详细API文档。
 
+> **注意**：代码已进行模块化重构，原`github_checker.py`已拆分为多个模块。推荐使用新的导入方式，但旧方式仍保持向后兼容。
+
+### 模块导入方式
+
+```python
+# 新方式（推荐）- 从新模块导入
+from core.checker import Checker
+from ui.themes import format_status, format_fun_status
+from utils.animation import spinning_cursor, start_spinner
+from utils.constants import DEFAULT_TIMEOUT, RESPONSE_TIME_THRESHOLD_MS
+
+# 旧方式（向后兼容）- 仍可正常工作
+from github_checker import Checker
+```
+
 ### Checker类
 
 `Checker`类是GitHub网络状态检测的核心类，负责执行检测、收集统计数据和生成状态消息。

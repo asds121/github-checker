@@ -23,11 +23,10 @@ jobs:
           pytest tests/ --cov=github_checker --cov-report=xml
 
       - name: Generate coverage badge
-        uses: tj-actions/coverage-badge-action@v2
-        with:
-          filename: coverage.xml
-          badge-name: Coverage
-          badge-color: "#4c1"
+        # 原 action 仓库/版本已失效，改用本地命令生成 coverage badge
+        run: |
+          pip install coverage-badge
+          coverage-badge -o .github/badges/Coverage.svg -c "#4c1"
 
       - name: Update README with coverage badge
         run: |

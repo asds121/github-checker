@@ -9,7 +9,7 @@ import os
 # Add the parent directory to the path to import the module
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from github_checker import Checker
+from core.checker import Checker
 
 
 class TestChecker(unittest.TestCase):
@@ -277,7 +277,7 @@ class TestChecker(unittest.TestCase):
 
     def test_spinning_cursor_generator(self):
         """Test the spinning cursor generator"""
-        from github_checker import spinning_cursor
+        from utils.animation import spinning_cursor
         
         generator = spinning_cursor()
         
