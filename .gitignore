@@ -47,7 +47,13 @@ config.local.py
 dev-*.ps1
 dev-*.bat
 dev-workflow.md
-assistant-rules.md
+check_dev_workflow.py
+
+# Tools directory
+tools/align_paren_tool.py
+
+# Trae IDE
+.trae/
 
 # Project specific ignores
 .coverage

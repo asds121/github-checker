@@ -19,6 +19,19 @@ import argparse  # Used to parse command-line arguments
 from typing import List, Dict, Tuple, Any, Iterator
 
 
+# Enable ANSI colors on Windows
+if sys.platform == 'win32':
+    import ctypes
+    kernel32 = ctypes.windll.kernel32
+    ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
+    STD_OUTPUT_HANDLE = -11
+    hOut = kernel32.GetStdHandle(STD_OUTPUT_HANDLE)
+    dwMode = ctypes.c_ulong()
+    kernel32.GetConsoleMode(hOut, ctypes.byref(dwMode))
+    if not (dwMode.value & ENABLE_VIRTUAL_TERMINAL_PROCESSING):
+        kernel32.SetConsoleMode(hOut, dwMode.value | ENABLE_VIRTUAL_TERMINAL_PROCESSING)
+
+
 class Colors:
     """ANSI color codes for terminal output"""
     RESET = '\033[0m'
