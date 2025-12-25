@@ -47,7 +47,7 @@ config.local.py
 dev-*.ps1
 dev-*.bat
 dev-workflow.md
-check_dev_workflow.py
+check_dev_workflow.py  # Added to ignore this file
 
 # Tools directory
 tools/align_paren_tool.py
