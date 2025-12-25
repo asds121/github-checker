@@ -48,3 +48,32 @@ dev-*.ps1
 dev-*.bat
 dev-workflow.md
 assistant-rules.md
+
+# Project specific ignores
+.coverage
+.pytest_cache/
+__pycache__/
+*.pyc
+
+# Test coverage and reports
+htmlcov/
+.coverage.*
+.pytest_cache/
+
+# Local development files
+local_config.py
+.env.local
+*.local
+
+# Backup files
+*.bak
+*.backup
+
+# Temporary files
+*.tmp
+*.temp
+
+# IDE specific (additional)
+*.sublime-*
+*.komodoproject
+*.komodotools

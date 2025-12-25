@@ -6,13 +6,23 @@ GitHub Network Status Checker 是一个极简的命令行工具，专门用于�
 
 该工具通过检测GitHub主页（github.com）和API端点（api.github.com）的可访问性，结合响应时间分析，帮助您判断当前网络环境是否适合进行代码推送、仓库克隆或其他GitHub相关操作。
 
-**当前版本：v1.1.0** - 查看版本历史请访问 [CHANGELOG.md](CHANGELOG.md)
+**当前版本：v1.2.0** - 查看版本历史请访问 [CHANGELOG.md](CHANGELOG.md)
 
 ## ✨ 功能特性
 
 本工具提供以下核心功能，满足不同场景下的网络状态检测需求：
 
-### v1.1.0 新增功能
+### v1.2.0 新增功能
+
+- **JSON输出格式** - 支持`-j`或`--json`参数，以JSON格式输出检测结果，便于程序化处理和集成
+- **进度显示** - 完整测试模式下显示进度百分比，实时反馈检测进度
+- **代码质量改进** - 完善类型注解和文档字符串，提升代码可读性和维护性
+- **代码规范检查** - 集成flake8代码质量检查，确保代码符合PEP 8规范
+- **错误处理增强** - 新增HTTPError、TimeoutError、ConnectionError等异常类型，提供更精确的错误处理
+- **测试覆盖率提升** - 从52%提升至81%（29个测试用例全部通过），确保代码质量
+- **完善文档体系** - 新增用户使用指南和故障排查文档、设计决策记录文档
+
+### v1.1.0 历史版本功能
 
 - **完整测试模式** - 执行多轮检测（默认3轮），计算平均值和成功率，提供更可靠的评估
 - **动态状态消息** - 根据检测结果生成详细的状态描述和操作建议
@@ -88,7 +98,7 @@ python github_checker.py
 如果看到类似以下输出，说明安装成功：
 
 ```
-GitHub Network Status Checker v1.1.0
+GitHub Network Status Checker v1.2.0
 ========================================
 Checking GitHub accessibility... \
 Results:
@@ -176,7 +186,7 @@ python github_checker.py --full-test
 执行基础检测后，您将看到以下格式的输出：
 
 ```
-GitHub Network Status Checker v1.1.0
+GitHub Network Status Checker v1.2.0
 ========================================
 Checking GitHub accessibility... \
 Results:
@@ -203,7 +213,7 @@ Suggestion: Network is stable, you can push code normally.
 执行完整测试模式后，输出包含更多统计信息：
 
 ```
-GitHub Network Status Checker v1.1.0
+GitHub Network Status Checker v1.2.0
 ========================================
 Checking GitHub accessibility... Running full test (3 iterations)...
   Iteration 3/3 (100%)...
@@ -237,7 +247,7 @@ Suggestion: Network is stable, you can push code normally.
 
 ```json
 {
-  "version": "v1.1.0",
+  "version": "v1.2.0",
   "timestamp": "2025-12-24 21:23:11",
   "status": "good",
   "message": "[OK] GitHub is accessible (avg 2054ms)",
@@ -264,7 +274,7 @@ Suggestion: Network is stable, you can push code normally.
 
 ```json
 {
-  "version": "v1.1.0",
+  "version": "v1.2.0",
   "timestamp": "2025-12-24 21:23:35",
   "status": "warn",
   "message": "[WARN] GitHub is accessible but slow (avg 3150ms)",
@@ -1021,6 +1031,28 @@ python -m unittest tests.test_github_checker -v
 - 状态判断逻辑
 - 消息生成功能
 - 错误处理能力
+
+### 自动化工作流程检查
+
+项目提供了 `check_dev_workflow.py` 脚本，用于自动化检查开发工作流程的各个环节：
+
+```bash
+# 运行开发工作流程检查
+python check_dev_workflow.py
+```
+
+该脚本会自动检查以下6个方面：
+
+1. **代码规范检查** - 使用 Flake8 检查代码是否符合 PEP 8 规范
+2. **测试验证** - 运行单元测试，确保所有测试用例通过
+3. **模块导入检查** - 验证主要模块能够正常导入
+4. **项目结构检查** - 检查必要的文件和目录是否存在
+5. **文档检查** - 验证关键文档文件是否存在
+6. **Git状态检查** - 检查是否有未提交的更改
+
+**注意**：在 Windows 系统上运行时，脚本已优化编码处理，使用 GBK 编码以避免中文路径的显示问题。
+
+**推荐使用**：在提交代码前运行此脚本，确保所有检查项都通过后再提交。
 
 ## 🤝 贡献指南
 

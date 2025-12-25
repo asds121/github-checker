@@ -142,13 +142,13 @@ class Checker:
             target_results = [r for _, r in all_results if _ == name]
             if target_results:
                 avg_response = sum(r.get("ms", 0) for r in target_results
-                                  if "ms" in r) / len(target_results)
+                                   if "ms" in r) / len(target_results)
                 successful_responses = sum(1 for r in target_results
-                                          if r.get("ok", False))
+                                           if r.get("ok", False))
                 target_stats[name] = {
                     "avg_response": avg_response,
                     "success_rate": (successful_responses /
-                                    len(target_results) * 100)
+                                     len(target_results) * 100)
                 }
 
         overall_status = self._judge(all_results)
