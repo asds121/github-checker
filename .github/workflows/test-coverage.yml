@@ -1,0 +1,43 @@
+name: Test Coverage
+
+on: [push, pull_request]
+
+jobs:
+  test-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python environment
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.8"
+
+      - name: Install dependencies
+        run: |
+          pip install pytest pytest-cov
+
+      - name: Run tests with coverage
+        run: |
+          pytest tests/ --cov=github_checker --cov-report=xml
+
+      - name: Generate coverage badge
+        uses: tj-actions/coverage-badge-action@v2
+        with:
+          filename: coverage.xml
+          badge-name: Coverage
+          badge-color: "#4c1"
+
+      - name: Update README with coverage badge
+        run: |
+          # Update README with the coverage badge
+          sed -i "s|!\[Coverage\].*|!\[Coverage\](.github/badges/Coverage.svg)|g" README.md
+        if: success()
+
+      - name: Commit coverage badge
+        uses: EndBug/add-and-commit@v9
+        with:
+          message: "Update coverage badge"
+          add: ".github/badges/Coverage.svg README.md"
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
