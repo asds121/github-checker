@@ -1,3 +1,10 @@
+import itertools
+import sys
+import threading
+import time
+from typing import Iterator
+from utils.constants import SPINNER_CHARS, SPINNER_DELAY, SPINNER_JOIN_TIMEOUT, SPINNER_PADDING
+
 # -*- coding: ascii -*-
 """
 Animation utilities for GitHub Checker
@@ -7,13 +14,10 @@ Provides spinner animation and cursor effects for CLI output.
 Author: GitHub Checker Project
 """
 
-import itertools
-import sys
-import threading
-import time
-from typing import Iterator
 
-from utils.constants import SPINNER_CHARS, SPINNER_DELAY, SPINNER_JOIN_TIMEOUT, SPINNER_PADDING
+
+# Global event to control spinner thread stopping
+_spinner_stop_event = threading.Event()
 
 
 def spinning_cursor() -> Iterator[str]:
@@ -35,11 +39,15 @@ def start_spinner() -> threading.Thread:
     Returns:
         threading.Thread: The spinner thread
     """
+    # Reset the stop event for new spinner
+    _spinner_stop_event.clear()
+
     spinner_thread = None
+
 
     def show_spinner():
         for cursor in itertools.cycle(SPINNER_CHARS):
-            if hasattr(show_spinner, 'done'):
+            if _spinner_stop_event.is_set():
                 break
             sys.stdout.write('\b' + cursor)
             sys.stdout.flush()
@@ -60,10 +68,8 @@ def stop_spinner(spinner_thread: threading.Thread) -> None:
         spinner_thread: The spinner thread to stop
     """
     if spinner_thread is not None:
-        if 'show_spinner' in locals() or hasattr(sys.modules[__name__], 'show_spinner'):
-            try:
-                show_spinner.done = True
-            except NameError:
-                pass
+        # Signal the spinner to stop
+        _spinner_stop_event.set()
+        # Wait for thread to join with timeout
         spinner_thread.join(timeout=SPINNER_JOIN_TIMEOUT)
         print("\r" + " " * SPINNER_PADDING + "\r", end="")

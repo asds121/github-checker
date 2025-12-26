@@ -1,21 +1,114 @@
-name: Code Quality Check
+name: Flake8 Lint
 
 on: [push, pull_request]
 
 jobs:
-  flake8-lint:
+  flake8:
     runs-on: ubuntu-latest
     steps:
       - name: Check out source repository
-        uses: actions/checkout@v3
-
-      - name: Set up Python environment
-        uses: actions/setup-python@v4
+        uses: actions/checkout@v4
         with:
-          python-version: "3.8"
+          fetch-depth: 0
 
-      - name: Install flake8
-        run: pip install flake8
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: "pip"
 
-      - name: Run flake8
-        run: flake8 github_checker.py
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install flake8
+          pip install -r requirements.txt
+
+      - name: Run flake8 on all Python files
+        run: |
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
+      - name: Run flake8 with config
+        run: |
+          flake8 . --config=.flake8 --statistics
+
+      - name: Run flake8 with details
+        run: |
+          flake8 . --config=.flake8 --verbose --format=json --output-file=flake8_report.json || true
+
+      - name: Report flake8 violations
+        if: always()
+        run: |
+          if [ -f flake8_report.json ]; then
+            echo "Flake8 violations found:"
+            cat flake8_report.json | python3 -m json.tool | head -n 100
+          else
+            echo "No flake8 violations found"
+          fi
+
+  code-style:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install flake8 flake8-docstrings flake8-builtins pep8-naming
+          pip install -r requirements.txt
+
+      - name: Check docstrings
+        run: |
+          flake8 --select=D . --statistics
+
+      - name: Check naming conventions
+        run: |
+          flake8 --select=N . --statistics
+
+      - name: Check builtins
+        run: |
+          flake8 --select=B . --statistics
+
+  security-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: "pip"
+
+      - name: Install bandit for security checks
+        run: |
+          pip install --upgrade pip
+          pip install bandit
+          pip install -r requirements.txt
+
+      - name: Run bandit security check
+        run: |
+          bandit -r core/ ui/ utils/ -f json -o bandit_report.json || true
+
+      - name: Report security issues
+        if: always()
+        run: |
+          if [ -f bandit_report.json ]; then
+            issues=$(cat bandit_report.json | python3 -c "import sys, json; data=json.load(sys.stdin); print(len(data.get('results', [])))")
+            if [ "$issues" -gt 0 ]; then
+              echo "Security issues found: $issues"
+              cat bandit_report.json | python3 -m json.tool | head -n 50
+              exit 1
+            else
+              echo "No security issues found"
+            fi
+          else
+            echo "No security issues found"
+          fi

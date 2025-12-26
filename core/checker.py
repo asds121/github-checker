@@ -8,14 +8,13 @@ Author: GitHub Checker Project
 """
 
 from typing import List, Dict, Any, Tuple
-
 import requests
 import time
-
 from utils.constants import (
     DEFAULT_TIMEOUT,
     MIN_REMAIN_TIMEOUT,
-    RESPONSE_TIME_THRESHOLD_MS
+    RESPONSE_TIME_THRESHOLD_MS,
+    FULL_TEST_ITERATIONS
 )
 
 
@@ -50,7 +49,6 @@ class Checker:
                 - target_stats (dict): Statistics for each target
                 - all_results (list): All test results
         """
-        from utils.constants import FULL_TEST_ITERATIONS
 
         results: List[Dict[str, Any]] = []
         all_results: List[Tuple[str, Dict[str, Any]]] = []
@@ -144,7 +142,6 @@ class Checker:
                   response time, status code or error message
         """
         try:
-            t0 = time.time()  # Record request start time
             # Send GET request to specified URL, set timeout and user agent
             resp = requests.get(url, timeout=timeout, headers={
                 "User-Agent": "GitHubChecker/1.0"
@@ -152,7 +149,7 @@ class Checker:
             # Return success result: status code 200 means success
             return {
                 "ok": resp.status_code == 200,  # Whether successful
-                "ms": round((time.time() - t0) * 1000),  # Response time
+                "ms": round(resp.elapsed.total_seconds() * 1000),  # Response time in ms
                 "status_code": resp.status_code  # HTTP status code
             }
         except requests.exceptions.Timeout:
@@ -176,7 +173,7 @@ class Checker:
             # HTTP error exception
             return {
                 "ok": False,
-                "error": f"HTTP error: {str(e)}",
+                "error": f"HTTP error: {e}",
                 "error_type": "http",
                 "suggestion": "Server returned an invalid HTTP response"
             }
@@ -192,82 +189,65 @@ class Checker:
             # Other request exceptions
             return {
                 "ok": False,
-                "error": f"Request error: {str(e)}",
+                "error": f"Request error: {e}",
                 "error_type": "request",
-                "suggestion": "Request failed, please try again"
+                "suggestion": "An unexpected error occurred"
             }
         except Exception as e:
-            # Other unexpected exceptions
+            # Generic exceptions (non-request related)
             return {
                 "ok": False,
-                "error": f"Unexpected error: {str(e)}",
-                "error_type": "unknown",
+                "error": f"Unexpected error: {e}",
+                "error_type": "generic",
                 "suggestion": "An unexpected error occurred"
             }
 
     def _judge(self, results: List[Tuple[str, Dict[str, Any]]]) -> str:
         """
-        Judge network status based on detection results
+        Judge the overall status based on detection results
 
         Args:
-            results (List[Tuple[str, Dict[str, Any]]]): Detection results list
+            results (list): List of detection results
 
         Returns:
-            str: Network status ("good", "warn", or "bad")
-                 - "good": All targets succeed and avg response < 3 seconds
-                 - "warn": Partial success or avg response >= 3 seconds
-                 - "bad": All targets fail
+            str: Overall status ("good", "warn", or "bad")
         """
         if not results:
-            return "bad"  # No results means bad status
+            return "bad"
 
-        # Calculate number of successful results
-        ok = sum(1 for _, r in results if r.get("ok"))
-        if ok == 0:
-            return "bad"  # No successful results
-        if ok < len(results):
-            return "warn"  # Partial success
+        # If any result is not ok, return bad status
+        if any(not r["ok"] for _, r in results):
+            return "bad"
 
-        # Calculate average response time
-        avg = sum(r["ms"] for _, r in results) / len(results)
-        return "good" if avg < RESPONSE_TIME_THRESHOLD_MS else "warn"
+        # If all results are ok, check response time
+        avg_response_time = sum(r.get("ms", 0) for _, r in results) / len(results)
+
+        if avg_response_time > RESPONSE_TIME_THRESHOLD_MS:
+            return "warn"
+
+        return "good"
 
     def _msg(self, status: str, results: List[Tuple[str, Dict[str, Any]]]) -> str:
         """
-        Generate user-friendly status message based on detection results
+        Generate status message based on status and results
 
         Args:
-            status (str): Network status ("good", "warn", or "bad")
-            results (List[Tuple[str, Dict[str, Any]]]): Detection results list
+            status (str): Overall status
+            results (list): List of detection results
 
         Returns:
-            str: Formatted status message (without status prefix)
+            str: Status message
         """
         if status == "good":
-            successful_results = [r for _, r in results if "ms" in r]
-            if successful_results:
-                avg_time = sum(r["ms"] for _, r in results
-                               if "ms" in r) / len(successful_results)
-                return f"GitHub is accessible (avg {avg_time:.0f}ms)"
-            else:
-                return "GitHub is accessible"
-        elif status == "warn":
-            failed_targets = [name for name, r in results if not r.get("ok")]
-            if failed_targets:
-                return (f"GitHub is unstable "
-                        f"({', '.join(failed_targets)} affected)")
-            else:
-                successful_results = [r for _, r in results if "ms" in r]
-                if successful_results:
-                    avg_time = sum(r["ms"] for _, r in results
-                                   if "ms" in r) / len(successful_results)
-                    return (f"GitHub is accessible but slow "
-                            f"(avg {avg_time:.0f}ms)")
-                else:
-                    return "GitHub is accessible but slow"
-        elif status == "bad":
-            failed_targets = [name for name, r in results if not r.get("ok")]
-            return (f"Cannot connect to GitHub "
-                    f"({', '.join(failed_targets)})")
-        else:
-            return "Unknown status"
+            return "All targets accessible"
+
+        if status == "warn":
+            return "Accessible but slow response"
+
+        # status == "bad"
+        failed = [name for name, r in results if not r["ok"]]
+        if failed:
+            return f"Failed targets: {', '.join(failed)}"
+
+        return "Detection failed"
+

@@ -8,6 +8,7 @@ Author: GitHub Checker Project
 """
 
 import sys
+import ctypes
 
 
 class Colors:
@@ -40,7 +41,6 @@ def enable_ansi_colors() -> bool:
     """
     if sys.platform == 'win32':
         try:
-            import ctypes
             kernel32 = ctypes.windll.kernel32
             ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
             STD_OUTPUT_HANDLE = -11

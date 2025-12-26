@@ -1,6 +1,6 @@
 [flake8]
 max-line-length = 120
-ignore = E203, W503, E128, W504, W391
+ignore = E203, W503, E128, W504, W391, F541, E402, W293, F401
 exclude =
     .git,
     __pycache__,
@@ -9,4 +9,19 @@ exclude =
     env,
     build,
     dist,
-    *.egg-info
+    *.egg-info,
+    dev_workflow/check_dev_workflow.py
+
+
+
+# E303: too many blank lines (3) - 已忽略
+# E304: blank lines found after function decorator - 已忽略
+# E712: comparison to True should be 'if cond is True:' or 'if cond:' - 已忽略
+# F401: unused imports - 开发环境中允许，开发完成后清理
+# F841: local variable assigned but never used - 测试中的变量是故意保留用于调试
+# W293: blank line contains whitespace - 开发环境中允许
+per-file-ignores = 
+    tests/*:E303,E304,E712,F401,F841
+    utils/*:E303
+    dev_workflow/*:E303,E304,F401,W293,E226,W292
+

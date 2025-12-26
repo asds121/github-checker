@@ -23,3 +23,11 @@ __all__ = [
     'render_fun_theme',
     'render_default_theme'
 ]
+
+__all__ = [
+    'format_status',
+    'format_fun_status',
+    'render_minimal_theme',
+    'render_fun_theme',
+    'render_default_theme'
+]

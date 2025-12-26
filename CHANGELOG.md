@@ -7,23 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-- Automated development workflow check script (check_dev_workflow.py) for comprehensive quality validation
-- Enhanced .flake8 configuration with proper error ignoring rules (E128, W504, W391)
-- Parenthesis-based indentation fix tool (tools/align_paren_tool.py) for automated PEP 8 compliance
+## [1.3.0] - 2025-01-25
 
 ### Fixed
 
-- Resolved flake8 E128 indentation errors in github_checker.py using automated tools
-- Fixed Windows encoding issues in subprocess calls (gbk encoding support)
-- Corrected continuation line indentation following PEP 8 guidelines
+- Fixed test_main.py: Added missing mock_open import and corrected test parameter issues
+- Fixed test_themes.py: Resolved syntax errors, import order issues, and removed non-existent function imports
+- Fixed test_data_generator.py: Corrected syntax errors and invalid import statements
+- Fixed utils/__init__.py: Removed duplicate __all__ definition causing potential confusion
 
 ### Changed
 
-- Improved development workflow with automated quality checks
-- Enhanced code quality assurance with comprehensive validation scripts
-- Optimized .flake8 configuration for better code style enforcement
+- Improved test coverage reliability by fixing all failing tests
+- Enhanced code quality by removing duplicate definitions
 
 ## [1.2.0] - 2024-12-24
 
@@ -31,8 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - JSON output format with `-j` or `--json` flag for programmatic access
 - Progress percentage display in full test mode
-- Comprehensive user guide and troubleshooting documentation (docs/15-用户使用指南和故障排查.md)
-- Design decision record document (docs/14-设计决策记录.md)
+- Comprehensive user guide and troubleshooting documentation
+- Design decision record document
 - Type annotations for all functions and methods
 - Comprehensive docstrings for all classes and functions
 - Code quality checking module with flake8 integration

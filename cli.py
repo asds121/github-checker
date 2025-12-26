@@ -10,14 +10,20 @@ Author: GitHub Checker Project
 import argparse
 import json
 import sys
-import time
-import requests
+import os
+import random
+from datetime import datetime
 from typing import Dict, Any
-
-from core import Checker, enable_ansi_colors
+from requests.exceptions import RequestException
+from core import Checker
 from utils import DEFAULT_TIMEOUT, VERSION
-from utils.animation import start_spinner, stop_spinner
-from ui.themes import render_minimal_theme, render_fun_theme, render_default_theme
+from ui.themes import (
+    render_minimal_theme,
+    render_fun_theme,
+    render_default_theme,
+    render_share_theme,
+    generate_share_text
+)
 
 
 def show_intro() -> None:
@@ -33,6 +39,139 @@ def show_intro() -> None:
     print("  * Give specific suggestions, reduce troubleshooting time")
     print("=" * 50)
     print()
+
+
+WELCOME_MESSAGES = [
+    "[ROCKET] GitHub Checker ready! Let's see if GitHub is awake...",
+    "[BOLT] Checking GitHub accessibility... Fingers crossed!",
+    "[MAG] Probing GitHub connection... One moment please...",
+    "[GLOBE] Connecting to GitHub... Hello, world!",
+    "[WRENCH] GitHub Checker v{version} is warming up...".format(version=VERSION),
+]
+
+# Feedback collection configuration
+FEEDBACK_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "feedback")
+FEEDBACK_FILE = os.path.join(FEEDBACK_DIR, "user_feedback.jsonl")
+
+
+def ensure_feedback_dir() -> None:
+    """Ensure feedback directory exists"""
+    if not os.path.exists(FEEDBACK_DIR):
+        os.makedirs(FEEDBACK_DIR, exist_ok=True)
+
+
+def save_feedback(rating: int, feedback_type: str, comment: str, result_data: Dict[str, Any]) -> bool:
+    """
+    Save user feedback to file
+
+    Args:
+        rating: User rating (1-5)
+        feedback_type: Type of feedback (useful, unclear, suggestion, bug, other)
+        comment: User's comment
+        result_data: Related check result data
+
+    Returns:
+        bool: Whether save was successful
+    """
+    try:
+        ensure_feedback_dir()
+        feedback_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "rating": rating,
+            "feedback_type": feedback_type,
+            "comment": comment,
+            "version": VERSION,
+            "result_status": result_data.get("status"),
+            "is_full_test": result_data.get("is_full_test", False)
+        }
+        with open(FEEDBACK_FILE, 'a', encoding='utf-8') as f:
+            f.write(json.dumps(feedback_entry, ensure_ascii=False) + '\n')
+        return True
+    except Exception:
+        return False
+
+
+def collect_feedback(result_data: Dict[str, Any]) -> bool:
+    """
+    Interactively collect user feedback
+
+    Args:
+        result_data: Result data from the check
+
+    Returns:
+        bool: Whether feedback was submitted
+    """
+    print("\n" + "=" * 50)
+    print("Help us improve!")
+    print("=" * 50)
+    print("Was this tool helpful to you?")
+    print("  1 - Not helpful")
+    print("  2 - Slightly helpful")
+    print("  3 - Moderately helpful")
+    print("  4 - Very helpful")
+    print("  5 - Extremely helpful")
+
+    rating_input = input("\nPlease enter your rating (1-5) or press Enter to skip: ").strip()
+
+    if not rating_input:
+        print("Thanks for using GitHub Checker!")
+        return False
+
+    try:
+        rating = int(rating_input)
+        if rating < 1 or rating > 5:
+            print("Invalid rating. Please enter a number between 1-5.")
+            return False
+    except ValueError:
+        print("Invalid input. Please enter a number between 1-5.")
+        return False
+
+    print("\nFeedback type:")
+    print("  1 - [useful] Useful feature")
+    print("  2 - [unclear] Unclear documentation")
+    print("  3 - [suggestion] Feature suggestion")
+    print("  4 - [bug] Bug report")
+    print("  5 - [other] Other")
+
+    type_input = input("\nPlease select feedback type (1-5) or press Enter to skip: ").strip()
+
+    feedback_type_map = {
+        "1": "useful",
+        "2": "unclear",
+        "3": "suggestion",
+        "4": "bug",
+        "5": "other"
+    }
+
+    feedback_type = feedback_type_map.get(type_input, "other")
+
+    comment = input("\nAny additional comments? (optional, press Enter to skip): ").strip()
+
+    if save_feedback(rating, feedback_type, comment, result_data):
+        print("\nThank you for your feedback! It helps us improve the tool.")
+        return True
+    else:
+        print("\nFailed to save feedback. But thank you for trying!")
+        return False
+
+
+def show_quick_feedback_prompt() -> None:
+    """Show quick feedback prompt at the end of execution"""
+    print("\n" + "-" * 50)
+    print("Love it? Hate it? Tell us!")
+    print("Run with --feedback to share your thoughts")
+    print("-" * 50)
+
+
+def show_welcome() -> None:
+    """
+    Display a friendly welcome message
+    """
+    print("=" * 50)
+    print("GitHub Network Status Checker")
+    print(f"Version: {VERSION}")
+    print(random.choice(WELCOME_MESSAGES))
+    print("=" * 50)
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -51,196 +190,107 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument('-j', '--json', action='store_true',
                         help='Output results in JSON format')
     # Add theme parameter
-    parser.add_argument('-t', '--theme', choices=['default', 'minimal', 'fun'],
+    parser.add_argument('-t', '--theme', choices=['default', 'minimal', 'fun', 'share'],
                         default='default', help='Output theme (default: default)')
+    # Add share text parameter for concise output
+    parser.add_argument('-s', '--share', action='store_true',
+                        help='Generate concise shareable text')
     # Add intro parameter to show value proposition
     parser.add_argument('-i', '--intro', action='store_true',
                         help='Show tool value proposition')
+    # Add quiet mode parameter
+    parser.add_argument('-q', '--quiet', action='store_true',
+                        help='Run in quiet mode with minimal output')
+    # Add timeout parameter
+    parser.add_argument('--timeout', type=int, default=DEFAULT_TIMEOUT,
+                        help=f'Request timeout in seconds (default: {DEFAULT_TIMEOUT})')
+    # Add interactive feedback parameter
+    parser.add_argument('--feedback', action='store_true',
+                        help='Prompt for user feedback after check')
     return parser
 
 
-def generate_suggestion(r: Dict[str, Any]) -> str:
+def show_result(result: Dict[str, Any], args) -> None:
     """
-    Generate user-friendly suggestion based on status
+    Display the check result
 
     Args:
-        r: Result dictionary containing test results
-
-    Returns:
-        str: Suggestion message
+        result: Dictionary containing check result
+        args: Parsed command-line arguments
     """
-    if r["status"] == "good":
-        return "Network is stable, you can push code normally."
-    elif r["status"] == "warn":
-        failed_targets = [name for name, result in r.get("results", [])
-                          if not result.get("ok")]
-        if failed_targets:
-            msg = f"Network is unstable for {', '.join(failed_targets)}. "
-            return msg + "Try again later."
-        else:
-            return "Network is slow but accessible."
-    else:
-        return "Network connection failed."
+    if args.json:
+        # Output in JSON format
+        result['timestamp'] = datetime.now().isoformat()
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        return
 
+    if args.share:
+        # Generate shareable text
+        share_text = generate_share_text(result, args.theme)
+        print(share_text)
+        return
 
-def generate_json_output(r: Dict[str, Any], is_full_test: bool) -> Dict[str, Any]:
-    """
-    Generate JSON output from test results
-
-    Args:
-        r: Result dictionary containing test results
-        is_full_test: Whether this is a full test
-
-    Returns:
-        Dict[str, Any]: JSON output structure
-    """
-    json_output = {
-        "version": "v" + VERSION,
-        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "status": r["status"],
-        "message": r["msg"],
-        "is_full_test": is_full_test
+    # Choose theme for rendering
+    theme_renderers = {
+        'default': render_default_theme,
+        'minimal': render_minimal_theme,
+        'fun': render_fun_theme,
+        'share': render_share_theme
     }
 
-    if is_full_test:
-        json_output.update({
-            "iterations": r["iterations"],
-            "successful_checks": r["successful_checks"],
-            "avg_total_time_ms": round(r["avg_total_time"], 2),
-            "target_stats": {
-                name: {
-                    "avg_response_ms": round(stats["avg_response"], 2),
-                    "success_rate": round(stats["success_rate"], 2)
-                }
-                for name, stats in r["target_stats"].items()
-            }
-        })
-    else:
-        json_output["results"] = [
-            {
-                "target": name,
-                "status": "OK" if result.get("ok") else "FAIL",
-                "response_time_ms": round(result.get("ms", 0), 2) if result.get("ok") else None,
-                "error": result.get("error") if not result.get("ok") else None
-            }
-            for name, result in r["results"]
-        ]
+    renderer = theme_renderers.get(args.theme, render_default_theme)
+    renderer(result)
 
-    json_output["suggestion"] = generate_suggestion(r)
-    return json_output
-
-
-def run_with_theme(r: Dict[str, Any], theme: str, is_full_test: bool) -> None:
-    """
-    Run output based on theme
-
-    Args:
-        r: Result dictionary containing test results
-        theme: Theme name
-        is_full_test: Whether this is a full test
-    """
-    if theme == "minimal":
-        print(render_minimal_theme(r))
-    elif theme == "fun":
-        print(render_fun_theme(r, is_full_test))
-    else:
-        print(render_default_theme(r, is_full_test))
+    if args.feedback:
+        collect_feedback(result)
 
 
 def main() -> int:
     """
-    Main function: Execute GitHub accessibility check main logic
-
-    This function is responsible for:
-    1. Parsing command line arguments
-    2. Starting animation indicator
-    3. Executing checks
-    4. Displaying results
-    5. Providing operation suggestions
+    Main function
 
     Returns:
-        int: Exit code (0 for success, non-zero for errors)
+        int: Exit code (0=success, 1=interrupt, 2=bad args, 3=error, 4=network error)
     """
-    enable_ansi_colors()  # Enable ANSI colors
-
     parser = create_parser()
     args = parser.parse_args()
 
-    # Show value proposition if --intro is used
-    if args.intro:
-        show_intro()
-
-    # Print friendly welcome message and version
-    print("=" * 50)
-    print("GitHub Network Status Checker")
-    print(f"Version: {VERSION}")
-    print("=" * 50)
-    # Print check start prompt
-    print("Checking GitHub accessibility...", end=" ")
-
-    spinner_thread = None
-
-    # For normal checks, display animation until check completes
-    if not args.full_test:
-        spinner_thread = start_spinner()
-
     try:
-        chk = Checker()  # Create checker instance
+        if args.intro:
+            show_intro()
+            return 0
+
+        show_welcome()
+
+        checker = Checker()
+
         if args.full_test:
-            r = chk.test(timeout=DEFAULT_TIMEOUT)  # Execute full test
-            is_full_test = True
+            result = checker.test(iterations=3, timeout=args.timeout)
         else:
-            r = chk.check(timeout=DEFAULT_TIMEOUT)  # Execute normal check
-            is_full_test = False
+            result = checker.check(timeout=args.timeout)
 
-        # Stop animation thread if running
-        if not args.full_test and spinner_thread is not None:
-            stop_spinner(spinner_thread)
+        show_result(result, args)
 
-        # Format output based on JSON flag and theme
-        if args.json:
-            json_output = generate_json_output(r, is_full_test)
-            print(json.dumps(json_output, indent=2, ensure_ascii=False))
+        if args.feedback:
+            collect_feedback(result)
         else:
-            run_with_theme(r, args.theme, is_full_test)
+            show_quick_feedback_prompt()
 
-        return 0  # Normal exit
+        return 0
 
     except KeyboardInterrupt:
-        if spinner_thread is not None:
-            stop_spinner(spinner_thread)
-        print("\n\nInterrupted by user.")
+        print("\n\nOperation cancelled by user")
         return 1
-    except requests.exceptions.ConnectionError as e:
-        if spinner_thread is not None:
-            stop_spinner(spinner_thread)
-        print("\n\n[ERROR] Network connection failed.")
-        print(f"Details: {str(e)}")
-        print("\nSuggestion: Please check your network connection and try again.")
-        return 2
-    except requests.exceptions.Timeout as e:
-        if spinner_thread is not None:
-            stop_spinner(spinner_thread)
-        print("\n\n[ERROR] Request timeout.")
-        print(f"Details: {str(e)}")
-        print("\nSuggestion: Network is slow or GitHub is not responding. Try again later.")
-        return 3
-    except requests.exceptions.RequestException as e:
-        if spinner_thread is not None:
-            stop_spinner(spinner_thread)
-        print("\n\n[ERROR] Request failed.")
-        print(f"Details: {str(e)}")
-        print("\nSuggestion: Check your network settings and try again.")
+    except RequestException as e:
+        print(f"\nNetwork error: {e}")
         return 4
+    except SystemExit:
+        raise
     except Exception as e:
-        if spinner_thread is not None:
-            stop_spinner(spinner_thread)
-        print("\n[ERROR] Unexpected error occurred.")
-        print(f"Details: {type(e).__name__}: {str(e)}")
-        print("\nSuggestion: Please report this issue with the error message above.")
-        return 5
+        print(f"\nError: {e}")
+        return 3
 
 
-if __name__ == "__main__":
-    # Execute main function when script is run directly
+if __name__ == '__main__':
     sys.exit(main())
+

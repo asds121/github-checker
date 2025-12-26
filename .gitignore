@@ -46,6 +46,7 @@ config.local.py
 # Development scripts
 dev-*.ps1
 dev-*.bat
+dev_workflow/
 dev-workflow.md
 check_dev_workflow.py
 

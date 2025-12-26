@@ -5,5 +5,5 @@ if %errorlevel% equ 1 (
     reg add "HKCU\Console" /v VirtualTerminalLevel /t REG_DWORD /d 1 /f >nul
 )
 chcp 65001 >nul
-python "%~dp0github_checker.py" %*
+python "%~dp0cli.py" %*
 pause

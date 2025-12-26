@@ -7,8 +7,8 @@ Provides theme definitions and formatting functions for CLI output.
 Author: GitHub Checker Project
 """
 
+import random
 from typing import Dict, Any
-
 from core.colors import Colors, colorize
 
 
@@ -33,6 +33,56 @@ def format_status(status: str, message: str) -> str:
         return f"[{status.upper()}] {message}"
 
 
+# Fun status messages for different scenarios
+FUN_STATUS_MESSAGES = {
+    "good": {
+        "super_fast": [
+            "GitHub is super fast! Everything is blazing!",
+            "Speed demon mode activated! GitHub is lightning quick!",
+            "GitHub says: I am speed! Everything checks out!",
+        ],
+        "normal": [
+            "GitHub is happy and responsive!",
+            "All systems go! GitHub is working perfectly!",
+            "GitHub says: Ready for action! Let's go!",
+        ],
+        "accessible": [
+            "GitHub is accessible and working normally!",
+            "Connection established! GitHub is ready!",
+            "GitHub is online and waiting for your code!",
+        ]
+    },
+    "warn": {
+        "slow_github": [
+            "GitHub seems to be taking a nap... zzz",
+            "GitHub is moving at a leisurely pace today...",
+            "GitHub might be on a coffee break...",
+        ],
+        "somewhat_slow": [
+            "GitHub is a bit slow today...",
+            "Things are moving slowly in GitHub land...",
+            "GitHub is taking its time today...",
+        ]
+    },
+    "bad": {
+        "unreachable": [
+            "GitHub appears to be unreachable at the moment",
+            "GitHub seems to be on vacation...",
+            "GitHub is not answering the door...",
+            "GitHub might be hiding from us...",
+        ]
+    }
+}
+
+
+# Fun status icons for different statuses (ASCII alternative to emojis)
+EMOJI_MAP = {
+    "good": ["[OK]", "[PASS]", "[YES]", "[GO]", "[FAST]"],
+    "warn": ["[WAIT]", "[SLOW]", "[WARN]", "[LATER]"],
+    "bad": ["[FAIL]", "[NO]", "[DOWN]", "[STOP]", "[ERROR]"]
+}
+
+
 def format_fun_status(status: str, avg_ms: float = None) -> str:
     """
     Format status message with fun descriptions
@@ -46,18 +96,51 @@ def format_fun_status(status: str, avg_ms: float = None) -> str:
     """
     if status == "good":
         if avg_ms and avg_ms < 500:
-            return "GitHub is super fast! Everything is blazing!"
+            category = "super_fast"
         elif avg_ms and avg_ms < 1000:
-            return "GitHub is happy and responsive!"
+            category = "normal"
         else:
-            return "GitHub is accessible and working normally!"
+            category = "accessible"
     elif status == "warn":
         if avg_ms and avg_ms > 3000:
-            return "GitHub seems to be taking a nap... zzz"
+            category = "slow_github"
         else:
-            return "GitHub is a bit slow today..."
+            category = "somewhat_slow"
     else:
-        return "GitHub appears to be unreachable at the moment"
+        category = "unreachable"
+
+    messages = FUN_STATUS_MESSAGES.get(status, {}).get(category, ["Status unknown"])
+    return random.choice(messages)
+
+
+def get_emoji(status: str) -> str:
+    """
+    Get a random emoji for the given status
+
+    Args:
+        status (str): Status type ("good", "warn", "bad")
+
+    Returns:
+        str: Random emoji
+    """
+    emojis = EMOJI_MAP.get(status, ["[?]"])
+    return random.choice(emojis)
+
+
+def format_fun_emoji_status(status: str, avg_ms: float = None) -> str:
+    """
+    Format status message with fun descriptions and emojis
+
+    Args:
+        status (str): Status type ("good", "warn", "bad")
+        avg_ms (float): Average response time in milliseconds
+
+    Returns:
+        str: Fun status description with emoji
+    """
+    emoji = get_emoji(status)
+    message = format_fun_status(status, avg_ms)
+    return f"{emoji} {message}"
 
 
 def render_minimal_theme(r: Dict[str, Any], results_key: str = "results") -> str:
@@ -104,53 +187,46 @@ def render_fun_theme(r: Dict[str, Any], is_full_test: bool = False) -> str:
     Returns:
         str: Formatted output string
     """
-    import time
 
     lines = []
+    emoji = get_emoji(r["status"])
+
+    # Fun header
     lines.append("\n" + "=" * 50)
-    lines.append("DETECTION RESULTS")
+    lines.append(f"{emoji} DETECTION RESULTS {emoji}")
     lines.append("-" * 20)
+    lines.append(f"Status: {r['status'].upper()}")
 
-    for name, result in r["results"]:
-        if result.get("ok"):
-            status = "OK"
-            ms = result.get("ms", 0)
-            lines.append(f"  {name:10}: {status:4} ({ms:.0f}ms)")
-        else:
-            status = "FAIL"
-            lines.append(f"  {name:10}: {status:4}")
+    if is_full_test:
+        # Full test details
+        lines.append(f"Iterations: {r.get('iterations', 'N/A')}")
+        lines.append(f"Successful Checks: {r.get('successful_checks', 'N/A')}")
+        lines.append(f"Average Time: {r.get('avg_total_time', 0):.2f}ms")
 
-    lines.append("\n" + "=" * 50)
-
-    # Fun status messages
-    avg_ms = r.get("avg_total_time", 0) if is_full_test else None
-    fun_status = format_fun_status(r["status"], avg_ms)
-    lines.append(f"STATUS: {fun_status}")
-
-    lines.append("\n" + "=" * 50)
-    lines.append("SUGGESTION")
-
-    if r["status"] == "good":
-        lines.append("  You can push code now! Go for it!")
-        lines.append("  Everything is working great!")
-    elif r["status"] == "warn":
-        failed_targets = [name for name, result in r.get("results", [])
-                          if not result.get("ok")]
-        if failed_targets:
-            lines.append("  GitHub is having some trouble...")
-            failed_list = ', '.join(failed_targets)
-            lines.append(f"  Slow spot: {failed_list}")
-            lines.append("  Maybe wait a bit and try again?")
-        else:
-            lines.append("  Things are a bit slow today...")
-            lines.append("  But you can still get work done!")
+        # Target statistics
+        target_stats = r.get('target_stats', {})
+        if target_stats:
+            lines.append("\nTarget Statistics:")
+            for name, stats in target_stats.items():
+                lines.append(f"  {name}:")
+                lines.append(f"    Avg: {stats.get('avg_response', 0):.2f}ms")
+                lines.append(f"    Success: {stats.get('success_rate', 0)}%")
     else:
-        lines.append("  GitHub seems to be taking a break...")
-        lines.append("  Check your network connection first.")
+        # Normal check results
+        results = r.get('results', [])
+        if results:
+            lines.append("\nTarget Results:")
+            for name, result in results:
+                if result.get("ok"):
+                    ms = result.get("ms", 0)
+                    lines.append(f"  [OK] {name}: {ms:.0f}ms")
+                else:
+                    lines.append(f"  [FAIL] {name}: {result.get('error', 'Unknown error')}")
 
-    lines.append("\n" + "=" * 50)
-    lines.append("SHARE THIS RESULT")
-    lines.append(f"GitHub Checker v1.1.0 | {r['msg']} | {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    # Fun footer
+    lines.append("-" * 50)
+    lines.append(format_fun_emoji_status(r["status"]))
+    lines.append("=" * 50 + "\n")
 
     return "\n".join(lines)
 
@@ -166,91 +242,97 @@ def render_default_theme(r: Dict[str, Any], is_full_test: bool = False) -> str:
     Returns:
         str: Formatted output string
     """
-    import time
-
     lines = []
 
+    # Add status line with colors
+    status_color = Colors.GREEN if r["status"] == "good" else Colors.YELLOW if r["status"] == "warn" else Colors.RED
+    lines.append(colorize(f"\nStatus: {r['status'].upper()}", status_color))
+    lines.append(colorize(f"Message: {r['msg']}", Colors.RESET))
+
     if is_full_test:
-        # Full test output format
-        lines.append("\nResults:")
-        lines.append("-" * 40)
-        lines.append(f"Full test completed ({r['iterations']} iterations)")
-        lines.append(f"Successful checks: {r['successful_checks']}/{r['iterations']}")
-        lines.append(f"Average total time: {r['avg_total_time']:.0f}ms")
-        lines.append("\nTarget statistics:")
-        for name, stats in r['target_stats'].items():
-            lines.append(f"  {name:10}: Avg {stats['avg_response']:.0f}ms, "
-                        f"Success rate: {stats['success_rate']:.1f}%")
+        # Full test details
+        lines.append(f"\nFull Test Results:")
+        lines.append(f"  Iterations: {r.get('iterations', 'N/A')}")
+        lines.append(f"  Successful Checks: {r.get('successful_checks', 'N/A')}")
+        lines.append(f"  Average Total Time: {r.get('avg_total_time', 0):.2f}ms")
 
-        lines.append("\n" + "=" * 50)
-        lines.append(f"STATUS: {format_status(r['status'], r['msg'])}")
-
-        lines.append("\n" + "=" * 50)
-        lines.append("SUGGESTION")
-
-        if r["status"] == "good":
-            lines.append(f"  {colorize('Network is stable.', Colors.GREEN)}")
-            lines.append(f"  {colorize('You can push code normally.', Colors.GREEN)}")
-        elif r["status"] == "warn":
-            failed_targets = [name for name, result in r.get("results", [])
-                              if not result.get("ok")]
-            if failed_targets:
-                lines.append(f"  {colorize('Network is unstable.', Colors.YELLOW)}")
-                failed_list = ', '.join(failed_targets)
-                lines.append(f"  {colorize(f'Issues with: {failed_list}', Colors.YELLOW)}")
-                lines.append(f"  {colorize('Try again later.', Colors.YELLOW)}")
-            else:
-                lines.append(f"  {colorize('Network is slow but accessible.', Colors.YELLOW)}")
-                lines.append(f"  {colorize('Consider waiting for better connectivity.', Colors.YELLOW)}")
-        else:
-            lines.append(f"  {colorize('Network connection failed.', Colors.RED)}")
-            lines.append(f"  {colorize('Check your network settings.', Colors.RED)}")
-
-        lines.append("\n" + "=" * 50)
-        lines.append("SHARE THIS RESULT")
-        lines.append(f"GitHub Checker v1.1.0 | {r['msg']} | {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        # Target statistics
+        target_stats = r.get('target_stats', {})
+        if target_stats:
+            lines.append(f"\nTarget Statistics:")
+            for name, stats in target_stats.items():
+                lines.append(f"  {name}:")
+                lines.append(f"    Average Response: {stats.get('avg_response', 0):.2f}ms")
+                lines.append(f"    Success Rate: {stats.get('success_rate', 0)}%")
     else:
-        # Normal test output format
-        lines.append("\n" + "=" * 50)
-        lines.append("DETECTION RESULTS")
-        lines.append("-" * 20)
-
-        for name, result in r["results"]:
-            if result.get("ok"):
-                status = "OK"
-                ms = result.get("ms", 0)
-                lines.append(f"  {name:10}: {status:4} ({ms:.0f}ms)")
-            else:
-                status = "FAIL"
-                error_msg = result.get("error", "Unknown error")
-                lines.append(f"  {name:10}: {status:4} ({error_msg})")
-
-        lines.append("\n" + "=" * 50)
-        lines.append(f"STATUS: {format_status(r['status'], r['msg'])}")
-
-        lines.append("\n" + "=" * 50)
-        lines.append("SUGGESTION")
-
-        if r["status"] == "good":
-            lines.append(f"  {colorize('Network is stable.', Colors.GREEN)}")
-            lines.append(f"  {colorize('You can push code normally.', Colors.GREEN)}")
-        elif r["status"] == "warn":
-            failed_targets = [name for name, result in r.get("results", [])
-                              if not result.get("ok")]
-            if failed_targets:
-                lines.append(f"  {colorize('Network is unstable.', Colors.YELLOW)}")
-                failed_list = ', '.join(failed_targets)
-                lines.append(f"  {colorize(f'Issues with: {failed_list}', Colors.YELLOW)}")
-                lines.append(f"  {colorize('Try again later.', Colors.YELLOW)}")
-            else:
-                lines.append(f"  {colorize('Network is slow but accessible.', Colors.YELLOW)}")
-                lines.append(f"  {colorize('Consider waiting for better connectivity.', Colors.YELLOW)}")
-        else:
-            lines.append(f"  {colorize('Network connection failed.', Colors.RED)}")
-            lines.append(f"  {colorize('Check your network settings.', Colors.RED)}")
-
-        lines.append("\n" + "=" * 50)
-        lines.append("SHARE THIS RESULT")
-        lines.append(f"GitHub Checker v1.1.0 | {r['msg']} | {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        # Normal check results
+        results = r.get('results', [])
+        if results:
+            lines.append(f"\nDetailed Results:")
+            for name, result in results:
+                if result.get("ok"):
+                    ms = result.get("ms", 0)
+                    lines.append(f"  {name}: OK ({ms:.0f}ms)")
+                else:
+                    lines.append(f"  {name}: FAIL - {result.get('error', 'Unknown error')}")
 
     return "\n".join(lines)
+
+
+def render_share_theme(r: Dict[str, Any], is_full_test: bool = False) -> str:
+    """
+    Render output using share theme (concise output for sharing)
+
+    Args:
+        r: Result dictionary containing test results
+        is_full_test: Whether this is a full test result
+
+    Returns:
+        str: Formatted output string
+    """
+    lines = []
+
+    # Header
+    lines.append("GitHub Status Report")
+    lines.append("-" * 30)
+
+    # Overall status
+    status_symbol = "[OK]" if r["status"] == "good" else "[WARN]" if r["status"] == "warn" else "[FAIL]"
+    lines.append(f"{status_symbol} {r['status'].upper()}")
+
+    if is_full_test:
+        # Full test summary
+        lines.append(f"Iterations: {r.get('iterations', 'N/A')}")
+        lines.append(f"Success Rate: {r.get('successful_checks', 'N/A')}/{r.get('iterations', 'N/A')}")
+        lines.append(f"Avg Time: {r.get('avg_total_time', 0):.0f}ms")
+    else:
+        # Normal check summary
+        results = r.get('results', [])
+        ok_count = sum(1 for _, result in results if result.get("ok"))
+        total_count = len(results)
+        lines.append(f"Results: {ok_count}/{total_count} OK")
+
+    return "\n".join(lines)
+
+
+def generate_share_text(r: Dict[str, Any], theme: str = "default") -> str:
+    """
+    Generate shareable text from test results
+
+    Args:
+        r: Result dictionary containing test results
+        theme: Theme to use for rendering
+
+    Returns:
+        str: Shareable text
+    """
+    is_full_test = "iterations" in r
+
+    if theme == "fun":
+        return render_fun_theme(r, is_full_test)
+    elif theme == "minimal":
+        return render_minimal_theme(r)
+    elif theme == "share":
+        return render_share_theme(r, is_full_test)
+    else:
+        return render_default_theme(r, is_full_test)

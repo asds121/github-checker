@@ -80,7 +80,7 @@
 项目使用 flake8 进行代码质量检查，确保您的代码通过检查：
 
 ```bash
-flake8 github_checker.py
+flake8 cli.py
 ```
 
 ## 测试

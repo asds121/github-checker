@@ -26,4 +26,4 @@ SPINNER_DELAY = 0.1  # Delay between spinner frames (seconds)
 SPINNER_CHARS = '|/\\-'  # Spinner character sequence
 
 # Version information
-VERSION = "1.1.0"
+VERSION = "1.3.0"
