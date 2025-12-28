@@ -30,13 +30,11 @@ jobs:
 
       - name: Update README with coverage badge
         run: |
-          # Update README with the coverage badge
           sed -i "s|!\[Coverage\].*|!\[Coverage\](.github/badges/Coverage.svg)|g" README.md
         if: success()
 
-      - name: Commit coverage badge
-        uses: EndBug/add-and-commit@v9
+      - name: Upload coverage badge as artifact
+        uses: actions/upload-artifact@v3
         with:
-          message: "Update coverage badge"
-          add: ".github/badges/Coverage.svg README.md"
-        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+          name: coverage-badge
+          path: .github/badges/Coverage.svg
