@@ -26,7 +26,7 @@ jobs:
       - name: Generate coverage badge
         run: |
           pip install coverage-badge
-          coverage-badge -o .github/badges/Coverage.svg
+          coverage-badge -o .github/badges/Coverage.svg -f
 
       - name: Update README with coverage badge
         run: |
