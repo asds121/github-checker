@@ -173,6 +173,7 @@ class Checker:
             "avg_total_time": avg_time,
             "successful_checks": successful_checks,
             "target_stats": target_stats,
+            "results": all_results,
             "all_results": all_results
         }
 
@@ -694,7 +695,12 @@ def main() -> int:
                     print("SHARE THIS RESULT")
                     print(f"GitHub Checker v1.1.0 | {r['msg']} | {time.strftime('%Y-%m-%d %H:%M:%S')}")
 
-        return 0  # Normal exit
+        if r["status"] == "good":
+            return 0
+        elif r["status"] == "warn":
+            return 1
+        else:
+            return 2
 
     except KeyboardInterrupt:
         if not args.full_test and spinner_thread is not None:
